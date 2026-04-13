@@ -2,6 +2,7 @@
 
 import { startTransition, useEffect, useEffectEvent, useState } from "react"
 
+import { AnimatedMetricValue } from "@/components/status/animated-metric-value"
 import type { StatusDashboardData } from "@/lib/sub2api-status"
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 const POLL_INTERVAL_MS = 30_000
 const METRIC_VALUE_CLASS =
   "max-w-full whitespace-nowrap text-center font-mono text-[clamp(2rem,2.7vw,2.9rem)] leading-[0.92] tracking-[-0.045em] text-white tabular-nums"
+const COUNT_FORMATTER = new Intl.NumberFormat("en-US")
 
 function hasRenderableValue(data: StatusDashboardData) {
   return (
@@ -21,21 +23,20 @@ function hasRenderableValue(data: StatusDashboardData) {
   )
 }
 
-function formatCount(value: number | null) {
-  if (typeof value !== "number") {
-    return "--"
-  }
-
-  return new Intl.NumberFormat("en-US").format(Math.round(value))
+function formatCount(value: number) {
+  return COUNT_FORMATTER.format(Math.round(value))
 }
 
-function formatPercent(value: number | null) {
+function normalizePercentValue(value: number | null) {
   if (typeof value !== "number") {
-    return "--"
+    return null
   }
 
-  const normalizedValue = value <= 1 ? value * 100 : value
-  return `${normalizedValue.toFixed(2)}%`
+  return value <= 1 ? value * 100 : value
+}
+
+function formatPercent(value: number) {
+  return `${value.toFixed(2)}%`
 }
 
 async function fetchStatusDashboardData(): Promise<StatusDashboardData> {
@@ -53,10 +54,12 @@ async function fetchStatusDashboardData(): Promise<StatusDashboardData> {
 function MetricCard({
   label,
   value,
+  formatValue,
   className,
 }: {
   label: string
-  value: string
+  value: number | null
+  formatValue: (value: number) => string
   className?: string
 }) {
   return (
@@ -73,7 +76,11 @@ function MetricCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="flex min-w-0 flex-1 items-center justify-center pt-5 pb-2">
-        <div className={METRIC_VALUE_CLASS}>{value}</div>
+        <AnimatedMetricValue
+          className={METRIC_VALUE_CLASS}
+          formatValue={formatValue}
+          value={value}
+        />
       </CardContent>
     </Card>
   )
@@ -122,17 +129,20 @@ export function DashboardShell({
       <section className="grid gap-3 xl:grid-cols-10 xl:justify-end">
         <MetricCard
           label="24小时 Token 数"
-          value={formatCount(data.tokens.today)}
+          value={data.tokens.today}
+          formatValue={formatCount}
           className="xl:col-span-4"
         />
         <MetricCard
           label="24小时请求数"
-          value={formatCount(data.requests.today)}
+          value={data.requests.today}
+          formatValue={formatCount}
           className="xl:col-span-3"
         />
         <MetricCard
           label="24小时可用性"
-          value={formatPercent(data.sla24h)}
+          value={normalizePercentValue(data.sla24h)}
+          formatValue={formatPercent}
           className="xl:col-span-3"
         />
       </section>
@@ -140,17 +150,20 @@ export function DashboardShell({
       <section className="mt-3 grid gap-3 xl:grid-cols-10 xl:justify-end">
         <MetricCard
           label="总 Token 数"
-          value={formatCount(data.tokens.all)}
+          value={data.tokens.all}
+          formatValue={formatCount}
           className="xl:col-span-4"
         />
         <MetricCard
           label="总请求数"
-          value={formatCount(data.requests.all)}
+          value={data.requests.all}
+          formatValue={formatCount}
           className="xl:col-span-3"
         />
         <MetricCard
           label={poolLabel.replace("POOL", "可用号池")}
-          value={formatCount(data.pool)}
+          value={data.pool}
+          formatValue={formatCount}
           className="xl:col-span-3"
         />
       </section>
