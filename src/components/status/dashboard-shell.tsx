@@ -7,7 +7,7 @@ import type { StatusDashboardData } from "@/lib/sub2api-status"
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-const POLL_INTERVAL_MS = 30_000
+const POLL_INTERVAL_MS = 5_000
 const METRIC_VALUE_CLASS =
   "max-w-full whitespace-nowrap text-center font-mono text-[clamp(2rem,2.7vw,2.9rem)] leading-[0.92] tracking-[-0.045em] text-white tabular-nums"
 const COUNT_FORMATTER = new Intl.NumberFormat("en-US")
