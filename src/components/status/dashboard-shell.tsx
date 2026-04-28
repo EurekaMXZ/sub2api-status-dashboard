@@ -122,10 +122,6 @@ export function DashboardShell({
     }
   }, [initialData])
 
-  const poolLabel = data.groupName
-    ? `可用号池 · ${data.groupName}`
-    : "可用号池"
-
   return (
     <div className="w-full">
       <section className="grid gap-3 xl:grid-cols-10 xl:justify-end">
@@ -163,7 +159,7 @@ export function DashboardShell({
           className="xl:col-span-3"
         />
         <MetricCard
-          label={poolLabel}
+          label="可用号池"
           value={data.pool}
           formatValue={formatCount}
           className="xl:col-span-3"
