@@ -23,18 +23,23 @@ type ApiEnvelope<T> = {
 }
 
 type DashboardStatsPayload = {
+  today_tokens?: number
   total_tokens?: number
+  today_requests?: number
   total_requests?: number
+}
+
+type DashboardSnapshotV2Payload = {
+  stats?: DashboardStatsPayload | null
 }
 
 type OpsOverviewPayload = {
   sla?: number | null
-  token_consumed?: number | null
-  request_count_total?: number | null
 }
 
 type AdminGroupPayload = {
   id?: number | null
+  name?: string | null
   active_account_count?: number | null
   rate_limited_account_count?: number | null
 }
@@ -46,7 +51,7 @@ type StatusConfig = {
 }
 
 export type StatusDashboardData = {
-  groupId: number | null
+  groupName: string | null
   tokens: {
     today: number | null
     all: number | null
@@ -59,7 +64,7 @@ export type StatusDashboardData = {
   sla24h: number | null
 }
 
-export function getConfiguredGroupId(): number | null {
+function getConfiguredGroupId(): number | null {
   const rawGroupId = process.env.SUB2API_GROUP_ID?.trim()
 
   if (!rawGroupId) {
@@ -70,11 +75,9 @@ export function getConfiguredGroupId(): number | null {
   return Number.isInteger(parsedGroupId) && parsedGroupId > 0 ? parsedGroupId : null
 }
 
-export function createStatusDashboardFallback(
-  groupId: number | null
-): StatusDashboardData {
+export function createStatusDashboardFallback(): StatusDashboardData {
   return {
-    groupId,
+    groupName: null,
     tokens: {
       today: null,
       all: null,
@@ -184,43 +187,51 @@ function getAvailablePoolCapacity(
 
 export async function getStatusDashboardData(): Promise<StatusDashboardData> {
   const config = getStatusConfig()
-  const fallback = createStatusDashboardFallback(config.groupId)
+  const fallback = createStatusDashboardFallback()
 
-  const [statsResult, overviewResult, groupsResult] = await Promise.allSettled([
-    sub2apiGet<DashboardStatsPayload>(config, "/api/v1/admin/dashboard/stats"),
+  const [snapshotResult, overviewResult, groupsResult] = await Promise.allSettled([
+    sub2apiGet<DashboardSnapshotV2Payload>(
+      config,
+      "/api/v1/admin/dashboard/snapshot-v2",
+      {
+        include_stats: "true",
+        include_trend: "false",
+        include_model_stats: "false",
+        include_group_stats: "false",
+        include_users_trend: "false",
+      }
+    ),
     sub2apiGet<OpsOverviewPayload>(config, "/api/v1/admin/ops/dashboard/overview", {
       time_range: "24h",
     }),
     sub2apiGet<AdminGroupPayload[]>(config, "/api/v1/admin/groups/all"),
   ])
 
-  if (statsResult.status === "fulfilled") {
-    fallback.tokens.all = statsResult.value.total_tokens ?? null
-    fallback.requests.all = statsResult.value.total_requests ?? null
+  if (snapshotResult.status === "fulfilled") {
+    const stats = snapshotResult.value.stats
+    fallback.tokens.today = stats?.today_tokens ?? null
+    fallback.tokens.all = stats?.total_tokens ?? null
+    fallback.requests.today = stats?.today_requests ?? null
+    fallback.requests.all = stats?.total_requests ?? null
   } else {
-    logFetchFailure("dashboard stats", statsResult.reason)
+    logFetchFailure("dashboard snapshot", snapshotResult.reason)
   }
 
   if (overviewResult.status === "fulfilled") {
     fallback.sla24h = overviewResult.value.sla ?? null
-    fallback.tokens.today = overviewResult.value.token_consumed ?? null
-    fallback.requests.today = overviewResult.value.request_count_total ?? null
   } else {
     logFetchFailure("ops overview", overviewResult.reason)
   }
 
   if (groupsResult.status === "fulfilled") {
+    const group = groupsResult.value.find((item) => item.id === config.groupId)
+    fallback.groupName = group?.name ?? null
     fallback.pool = getAvailablePoolCapacity(groupsResult.value, config.groupId)
   } else {
     logFetchFailure("groups", groupsResult.reason)
   }
 
   return fallback
-}
-
-export async function getCachedStatusDashboardData(): Promise<StatusDashboardData> {
-  const result = await getCachedStatusDashboardResult()
-  return result.data
 }
 
 export async function getCachedStatusDashboardResult(): Promise<CachedStatusDashboardResult> {

@@ -122,19 +122,21 @@ export function DashboardShell({
     }
   }, [initialData])
 
-  const poolLabel = data.groupId ? `POOL · G${data.groupId}` : "POOL"
+  const poolLabel = data.groupName
+    ? `可用号池 · ${data.groupName}`
+    : "可用号池"
 
   return (
     <div className="w-full">
       <section className="grid gap-3 xl:grid-cols-10 xl:justify-end">
         <MetricCard
-          label="24小时 Token 数"
+          label="今日 Token 数"
           value={data.tokens.today}
           formatValue={formatCount}
           className="xl:col-span-4"
         />
         <MetricCard
-          label="24小时请求数"
+          label="今日请求数"
           value={data.requests.today}
           formatValue={formatCount}
           className="xl:col-span-3"
@@ -161,7 +163,7 @@ export function DashboardShell({
           className="xl:col-span-3"
         />
         <MetricCard
-          label={poolLabel.replace("POOL", "可用号池")}
+          label={poolLabel}
           value={data.pool}
           formatValue={formatCount}
           className="xl:col-span-3"
